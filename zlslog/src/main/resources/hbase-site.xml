@@ -39,7 +39,7 @@
 
   <property>
     <name>hbase.rootdir</name>
-    <value>hdfs://al-vm-tao-hadoop-109-37.117go.com:9000/hbase</value>
+    <value>hdfs://ip:9000/hbase</value>
   </property>
 
   <property>
