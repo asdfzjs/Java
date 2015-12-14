@@ -5,14 +5,19 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.sql.SQLException;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
 
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.LineIterator;
 import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -20,22 +25,30 @@ public class LogToModel {
 
 	/**
 	 * @throws SQLException
+	 * @throws ParseException
+	 * @throws IOException 
 	 * 
 	 */
-	public static void readFileByLines(String filePath, int batchLines) throws SQLException {
+	public static void readFileByLines(String filePath, int batchLines) throws SQLException, ParseException, IOException {
 		Logger logger = Logger.getLogger(InsertToPhoenix.class);
 		logger.info("start to read file");
 		File file = new File(filePath);
 		String logDate = filePath.substring(filePath.length() - 10);
-		BufferedReader reader = null;
+		LineIterator it = FileUtils.lineIterator(file, "UTF-8");
+		//BufferedReader reader = null;
 		try {
-			reader = new BufferedReader(new FileReader(file));
+			//reader = new BufferedReader(new FileReader(file));
 			String tempString = null;
 			int line = 1;
 			int batchNumber = 1;
 			List<LogModel> logmodelList = new ArrayList();
-			while ((tempString = reader.readLine()) != null) {
-				JSONArray jsonarray = new JSONArray("[" + tempString + "]");
+			// 1万行日志开始解析时间
+			while (it.hasNext()) {
+				Date date = new Date();
+				DateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+				String StartTime = format.format(date);
+				
+				JSONArray jsonarray = new JSONArray("[" + it.nextLine() + "]");
 				for (int i = 0; i < jsonarray.length(); i++) {
 					LogModel logmodel = new LogModel();
 					JSONObject jsonobj = jsonarray.getJSONObject(i);
@@ -50,7 +63,10 @@ public class LogToModel {
 									if (param[j].contains("=")) {
 										key.put(param[j].split("=")[0], param[j].split("=")[1]);
 									} else {
-										logger.warn("this record params format is not formated" + param.toString());
+										key.put(param[j].split(":")[0], param[j].split(":")[1]);
+										// logger.warn("this record params
+										// format is not formated" +
+										// getToString(param));
 									}
 								}
 								String paramJson = hashMapToJson(key);
@@ -117,9 +133,21 @@ public class LogToModel {
 				}
 				if (batchNumber % batchLines == 0) {
 					logger.info(logDate + "one batch is finished");
-					logger.info("one record:" + logmodelList.get(0).toString());
+					Date b = new Date();
+					String endTime = format.format(b);
 					InsertToPhoenix.InsertToPhoenix(logmodelList);
+					Date b2 = new Date();
+					String endTime2 = format.format(b2);
 					logmodelList.clear();
+					long diff = format.parse(endTime).getTime() - format.parse(StartTime).getTime();
+					long diff2 = format.parse(endTime2).getTime() - format.parse(endTime).getTime();
+					// long nd = 1000*24*60*60;//一天的毫秒数
+					// long nh = 1000*60*60;//一小时的毫秒数
+					// long nm = 1000*60;//一分钟的毫秒数
+					// long ns = 1000;//一秒钟的毫秒数
+					long sec = diff / 1000;
+					logger.warn("10000 records analysis seconds:"+StartTime+"-"+endTime);
+					logger.warn("10000 records insert time:"+endTime+"-"+endTime2);
 				}
 				line++;
 				batchNumber++;
@@ -129,17 +157,16 @@ public class LogToModel {
 				InsertToPhoenix.InsertToPhoenix(logmodelList);
 				logmodelList.clear();
 			}
-			reader.close();
+			InsertToPhoenix.closeConnection();
 			logger.info(logDate + "log is synchornized");
-		} catch (IOException e) {
-			e.printStackTrace();
 		} finally {
-			if (reader != null) {
+			/*if (reader != null) {
 				try {
 					reader.close();
 				} catch (IOException e1) {
 				}
-			}
+			}*/
+			LineIterator.closeQuietly(it);
 		}
 	}
 
@@ -153,6 +180,14 @@ public class LogToModel {
 		string = string.substring(0, string.lastIndexOf(","));
 		string += "}";
 		return string;
+	}
+
+	public static String getToString(String param[]) {
+		StringBuffer a = new StringBuffer();
+		for (int i = 0; i < param.length; i++) {
+			a.append(param[i] + ",");
+		}
+		return a.toString().substring(0, a.toString().length() - 2);
 	}
 
 	public static void main(String[] args) {

@@ -9,16 +9,16 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
 
 public class InsertToPhoenix {
-
-	public static void InsertToPhoenix(List<LogModel> LogModelList) {
+    private static Connection connection;
+	public static void InsertToPhoenix(List<LogModel> LogModelList) throws SQLException {
 		Logger logger = Logger.getLogger(InsertToPhoenix.class);
-
+		PhoenixConnection.getInstance();
+		connection  = PhoenixConnection.GetConnection();
 		String sql = "upsert into zls_log (cmd, app_id, userid,duration,ok,client_addr,server_addr,ver_full,ver,vc,"
 				+ "vd,dbqcnt,mccnt,mongocnt,memory,params,trace2,version,createtimestamp,platform,os,lines,logdate,request_time)"
 				+ " values (?, ?, ?,?, ?, ?,?, ?, ?,?, ?, ?,?, ?, ?,?, ?, ?,?, ?, ?,?, ?, ?)";
+		PreparedStatement ps = connection.prepareStatement(sql);
 		try {
-			Connection connection = PhoenixConnection.getInstance().GetConnection();
-			PreparedStatement ps = connection.prepareStatement(sql);
 			for (LogModel logmodel : LogModelList) {
 				ps.setString(1, logmodel.getCmd());
 				ps.setString(2, logmodel.getApp_id());
@@ -48,11 +48,14 @@ public class InsertToPhoenix {
 			}
 			ps.executeBatch();
 			ps.close();
-			connection.close();
 		} catch (SQLException ex) {
 			logger.error("SQL error", ex);
 			logger.error("error sql is " + sql);
 		}
+	}
+
+	public static void closeConnection() throws SQLException {
+		connection.close();
 	}
 
 }
