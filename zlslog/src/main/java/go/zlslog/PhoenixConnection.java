@@ -32,7 +32,7 @@ class PhoenixConnection {
 			e.printStackTrace();
 			logger.error("class for name error:");
 		}  
-		Connection  conn = DriverManager.getConnection("jdbc:phoenix:al-vm-tao-hadoop-109-37.117go.com:2181");  
+		Connection  conn = DriverManager.getConnection("jdbc:phoenix:ip:2181");  
 		conn.setAutoCommit(false);
 		return conn;
 
